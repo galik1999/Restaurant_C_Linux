@@ -1,0 +1,166 @@
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#define MAX_LEN 2048
+
+
+
+int Calc_Bytes_in_file(int fd_read_from){
+    //The File Should be Open in main in order for this function to work.
+    //The function calculates the number of bytes in the file.
+    int counter=0,cont;
+    char buffer[2];
+    buffer[1]='\0';
+    cont=read(fd_read_from,buffer,1);
+    if(cont==-1){
+        perror("Read.\n");
+        exit(1);
+    }
+    if(cont==0){
+        return 0;
+    }
+    else
+        counter++;
+
+     while(cont!=0){
+        cont=read(fd_read_from,buffer,1);
+        if(cont==-1){
+            perror("Read.\n");
+            exit(1);
+        }
+        if(cont==0){
+            break;
+        }
+        else
+            counter++;
+
+    }
+    lseek(fd_read_from,0,SEEK_SET);
+
+    return counter;
+}
+
+
+int main(int argc,char* argv[]) {
+
+        //argv[1] = Restaurant name.
+        //argv[2] = Dish name.
+        //OPTIONAL: argv[3] = Dish name;
+
+        char buffer[MAX_LEN];
+
+
+        if(argc < 3){
+        printf("Not Supported.\n");
+        exit(1);
+    }
+
+    //Puting the name of the file into the buffer.
+    strcpy(buffer,argv[1]);
+    strcat(buffer,".txt");
+
+    // Open Menu file to read only.
+    int fd=open(buffer,O_RDONLY,664);
+
+    if(fd==-1){
+        printf("Restaurant Not Found.\n");
+        exit(1);
+    }
+
+    /// size saves the number of bytes in the current open file.
+    int size=Calc_Bytes_in_file(fd);
+
+
+    // allocate String to save all the contents of the file.
+    char *Menu=(char*)malloc(sizeof(char)*size);
+    if(Menu==NULL){
+        printf("Error in memory allocation.\n");
+        exit(1);
+    }
+
+    if(read(fd,Menu,size)==-1){
+        perror("Read.\n");
+        exit(1);
+    }
+
+    //Now we have the menu in the Menu String.
+
+
+    //buffer saves the users name of the Dish.
+    if(argc == 3){
+         strcpy(buffer,argv[2]);
+    }
+    else if(argc == 4){
+        strcpy(buffer,argv[2]);strcat(buffer," "); strcat(buffer,argv[3]);
+    }
+
+    char *usrDish = strstr(Menu,buffer);
+
+
+    if(usrDish == NULL){
+        printf("dish Not Found!\n");
+        return 0;
+    }
+     if(*(usrDish+strlen(buffer))=='\n'){
+        printf("dish Not Found.\n");
+        return 0;
+    }
+
+    //case 1: We have the first of the two words: buffer=Burger instead of burger large.
+
+    int flag=0;
+    if((*(usrDish+strlen(buffer)+1)>='a' && *(usrDish+strlen(buffer)+1)<='z') || (*(usrDish+strlen(buffer)+1)>='A' && *(usrDish+strlen(buffer)+1)<='Z')){
+        usrDish=NULL;
+        flag=1;
+    }
+
+    //case 2: We have the last of the two words: buffer=Large instead of burger large.
+
+    if(flag==0){
+            if((*(usrDish-2)>='a' && *(usrDish-2)<='z') || (*(usrDish-2)>='A' && *(usrDish-2)<='Z')){
+            usrDish=NULL;
+        }
+
+    }
+
+    if (usrDish != NULL) {
+        // We found the dish in the menu !
+
+
+        //Now search for the first occurence of the price in the Menu.
+        int i = 0, j = 0;
+        while (!(*(usrDish + i) >= '0' && *(usrDish + i) <= '9')) {
+            i++;
+        }
+        buffer[j] = *(usrDish + i);
+        j++;
+        i++;
+
+        //Calculate the length of the represantation of the number.
+        while ((*(usrDish + i) >= '0' && *(usrDish + i) <= '9')) {
+            buffer[j] = *(usrDish + i);
+            i++;
+            j++;
+        }
+
+        //Make it a proper String.
+        buffer[j] = '\0';
+
+        //print the price.
+        int ret = atoi(buffer);
+        printf("%dNIS\n",ret);
+        return 0;
+    }
+
+
+    printf("dish Not Found!\n");
+
+    close(fd);
+    free(Menu);
+
+
+    return 0;
+}

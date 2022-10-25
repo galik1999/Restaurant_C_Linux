@@ -1,0 +1,147 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#define MAX_LEN 2048
+
+void Remove_BackSlash(char* command){
+    //Removing the '\n' from the buffer which we read the command into.
+    int i=0;
+    while(command[i]!='\n'){
+        i++;
+    }
+    command[i]='\0';
+}
+
+int main(int argc,char* argv[]) {
+    //CreateMenu BBB 3
+    int dish_letter=97,i,j=1;
+    if(argc != 3){
+        perror("args\n");
+        exit(1);
+    }
+    char buffer[MAX_LEN];
+    char PostBuf[MAX_LEN];
+    char Price[MAX_LEN]; // string for the price of the dish.
+    char letter[4];
+    letter[3]='\0';
+    //to add at the end of the row in the file.
+    char Shekels[]={"NIS\n"};
+
+    //string to write each dish number in the file.
+
+    int fd;
+
+    //Open New file in Writing mode.
+    strcpy(buffer,argv[1]);
+    strcat(buffer,".txt");
+    //Name: Name.txt
+    fd=open(buffer,O_WRONLY| O_RDONLY | O_CREAT,0644);
+    if(fd==-1){perror("Open File.\n");}
+
+    // Order The title of the file
+    strcpy(buffer,argv[1]);
+    strcat(buffer," Menu\n\n");
+
+    // Write the title of the file.
+     if(write(fd,buffer,strlen(buffer))==-1){perror("Write.\n");}
+
+
+    for(i=0;i<atoi(argv[2]);i++){
+         printf("Insert Type Dish %c: \n",dish_letter);
+         //Formating the type of the dish to be printed.
+         letter[0]=dish_letter;
+         letter[1]='.';
+         letter[2]=' ';
+         dish_letter++;
+
+
+         strcpy(buffer,letter);
+         // At the begining of the buffer there will be the letter of the dish.
+
+         if(fgets(PostBuf,MAX_LEN,stdin)==NULL){
+             printf("could not read your command.\n");
+             exit(1);
+             }
+
+
+        //at the end of the buffer there will be the input from the user.
+        strcat(buffer,PostBuf);
+        //Write to the file.
+        if(write(fd,buffer,strlen(buffer))==-1){perror("Write.\n");}
+          while(strcmp(buffer,"Stop")!=0){
+              printf("Insert dish name %d:\n",j);
+              j++;
+              //getting the food name and it's price.'
+              if(fgets(buffer,MAX_LEN,stdin)==NULL){
+                printf("could not read your command.\n");
+                exit(1);
+             }
+             Remove_BackSlash(buffer);
+             if(strcmp(buffer,"Stop")!=0){
+                 if(write(fd,"  ",2)==-1){perror("Write.\n");}
+             }
+             //Need To Distinguish between numbers and letters.
+             //Done By strtok
+
+             char *token= strtok(buffer," ");
+             int q=0,p=0;
+             while(token != NULL){
+                 if(!((token[0]>='a' && token[0]<='z') || (token[0]>='A' && token[0]<='Z'))){
+                     while(p<20-q){
+                        if(write(fd,".",1)==-1){perror("Write.\n");}
+                        p++;
+                     }
+                     if(write(fd," ",1)==-1){perror("Write.\n");}
+                    //save in a different string for later writing.
+                     strcpy(Price,token);
+                     strcat(Price,Shekels); //For Example: We Have 62NIS in string price.
+                     if(write(fd,Price,strlen(Price))==-1){perror("Write.\n");}
+
+                 }
+                 else{
+                     if(strcmp(buffer,"Stop")==0){
+                         break;
+                     }
+                     if(write(fd,token,strlen(token))==-1){perror("Write.\n");}
+                     q+=strlen(token)+1;
+                     if(write(fd," ",1)==-1){perror("Write.\n");}
+
+                 }
+                 token=strtok(NULL," ");
+
+             }
+
+          }
+
+          j=1;
+
+    }
+
+        if(write(fd,"\n\n         Bon Appetit\n",23)==-1){perror("Write.\n");}
+
+        //Creating new Directory named as the name of the restaurant + "Order".
+
+        char Order[]={"_Order"};
+        char *name=(char*)malloc(sizeof(char)*(strlen(argv[1])+strlen(Order)));
+        if(name==NULL){
+            printf("Memory allocation error.\n");
+            exit(1);
+        }
+        strcpy(name,argv[1]);
+        strcat(name,Order);
+
+        int success = mkdir(name,S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        if(success!=0){
+            printf("Can not open the directory.\n");
+            exit(1);
+        }
+        printf("Successfully created.\n");
+
+        free(name);
+        close(fd);
+
+
+    return 0;
+}

@@ -1,0 +1,248 @@
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
+#define MAX_LEN 2048
+
+
+int Calc_Bytes_in_file(int fd_read_from){
+    //The File Should be Open in main in order for this function to work.
+    //calculates the amount of bytes in the file.
+    int counter=0,cont;
+    char buffer[2];
+    buffer[1]='\0';
+    cont=read(fd_read_from,buffer,1);
+    if(cont==-1){
+        perror("Read.\n");
+        exit(1);
+    }
+    if(cont==0){
+        return 0;
+    }
+    else
+        counter++;
+
+    while(cont!=0){
+        cont=read(fd_read_from,buffer,1);
+        if(cont==-1){
+            perror("Read.\n");
+            exit(1);
+        }
+        if(cont==0){
+            break;
+        }
+        else
+            counter++;
+
+    }
+    lseek(fd_read_from,0,SEEK_SET);
+
+    return counter;
+}
+
+
+int main(int argc,char* argv[]) {
+
+    //argv[1] - Restaurant Name.
+    //argv[2] - Orderer name.
+
+    if(argc!=3){
+        printf("Illegal command.\n");
+        exit(1);
+    }
+
+    char buffer[MAX_LEN]; // Buffer for reading and writing to files.
+    char *Text_To_File;
+    int TotalPrice=0;
+    int quantity; // Amount of dishes in the order.
+
+    //Opening the Restaurant file.
+    strcpy(buffer,argv[1]);
+    strcat(buffer,".txt");
+
+    int fd_read_from=open(buffer,O_RDONLY,444); //CHECK IF THE PERMISSION ARE CORRECT.
+    if(fd_read_from==-1){
+        printf("Restaurant Not Found!\n");
+        exit(0);
+    }
+    //BBB.txt has been opened.
+    int sizeOfFile=Calc_Bytes_in_file(fd_read_from);
+
+    printf("Insert your order (Finish to finish):\n");
+
+    if(fgets(buffer,MAX_LEN,stdin)==NULL){
+             printf("could not read your command.\n");
+             exit(1);
+    }
+
+    Text_To_File=(char*)malloc(sizeof(char)*sizeOfFile);
+    if(Text_To_File==NULL){
+        printf("Memory allocation error.\n");
+        exit(1);
+    }
+
+    strcpy(Text_To_File,buffer);
+    //Search the file for the specified dish and its price.
+        char *FileDishName=(char*)malloc(sizeof(char)*sizeOfFile);
+        if(FileDishName==NULL){
+            printf("Memory allocation error.\n");
+            exit(1);
+        }
+
+    while(strcmp(buffer,"Finish\n")!=0){
+            char Dish_Name[MAX_LEN]="\0"; // string for comparisson with the txt file. initialized with \0.
+            char *token=strtok(buffer," ");
+            while(token!=NULL){
+                if(!((token[0]>='a' && token[0]<='z') || (token[0]>='A' && token[0]<='Z'))){
+                    quantity=atoi(token); // number of dishes ordered.
+                }
+
+                else{ // name of the dish.
+                    strcat(Dish_Name,token);
+                    strcat(Dish_Name," ");
+                }
+            token=strtok(NULL," ");
+            }
+
+        //FileDishName Saves the whole file in a single string.
+        int flag;
+
+        // read from file into FileDishName.
+        flag=read(fd_read_from,FileDishName,sizeOfFile); // FileDishName contains its price.
+        if(flag==-1){perror("Read.\n");}
+
+        if(strstr(FileDishName,Dish_Name)!=NULL){
+            //We found the dish name in the menu file.
+            char *TheDish=strstr(FileDishName,Dish_Name);
+            int i=0;
+            while(!(TheDish[i]>='0' && TheDish[i]<='9')){
+                i++;
+            }
+            int index=i;
+            //We incremented i , and now i points to the first occurence of a number (wich is the first digit of the price).
+
+            //Count the length of the price string.
+            int cnt=0;
+            while(TheDish[i]>='0' && TheDish[i]<='9'){
+                cnt++;
+                i++;
+            }
+
+            //Allocate Space for the string to save the price of the ordered dish.
+            char *PriceString=(char*)malloc(sizeof(char)*cnt+1);
+            if(PriceString==NULL){
+                printf("Memory allocation error.\n");
+                exit(1);
+            }
+            //assigning values to the string.
+            int k;
+            for(k=0;k<cnt;k++){
+                PriceString[k]=TheDish[index];
+                index++;
+            }
+            PriceString[k]='\0';
+
+            //Adding the amount of the order dish multiplied by its cost = calculating the totalPrice.
+            TotalPrice+=atoi(PriceString)*quantity;
+            free(PriceString);
+        }
+
+            if(fgets(buffer,MAX_LEN,stdin)==NULL){
+                printf("could not read your command.\n");
+                exit(1);
+            }
+            if(strcmp(buffer,"Finish\n")!=0){
+                strcat(Text_To_File,buffer);
+            }
+    }
+
+    printf("Total Price: %d NIS (Confirm to approve/else cancel)\n",TotalPrice);
+
+    strcat(Text_To_File,"Total Price:");
+    char number[MAX_LEN];
+    sprintf(number,"%d",TotalPrice);
+    strcat(Text_To_File,number);
+    strcat(Text_To_File," NIS\n");
+
+
+    //Using existing library <time.h> to print the date.
+    time_t now;
+    time(&now);
+
+    struct tm *local = localtime(&now);
+    char day[MAX_LEN];
+    char month[MAX_LEN];
+    char year[MAX_LEN];
+
+    sprintf(day,"%d",local->tm_mday);
+    sprintf(month,"%d",local->tm_mon+1);
+    sprintf(year,"%d",local->tm_year+1900);
+
+    //adding the date to the string which we will write to the file.
+    strcat(Text_To_File,day);
+    strcat(Text_To_File,"/");
+    strcat(Text_To_File,month);
+    strcat(Text_To_File,"/");
+    strcat(Text_To_File,year);
+    strcat(Text_To_File,"\n");
+
+    // if(write(fd,TotalPrice,4)==-1){perror("Write.\n");}
+    if(fgets(buffer,MAX_LEN,stdin)==NULL){
+                printf("could not read your command.\n");
+                exit(1);
+            }
+    if(strcmp(buffer,"Confirm\n")==0){
+        //if the user entered "Confirm" we create new Folder and put his Order into it.
+
+        strcpy(buffer,argv[1]);
+        strcat(buffer,"_Order");
+            if (chdir(buffer) == -1) {
+                perror("Can't Change Directory.\n");
+                exit(1);
+            }
+        //creating file and file name. for example: Tiran.txt
+        strcpy(buffer,argv[2]);
+        strcat(buffer,".txt");
+
+        int fd=open(buffer,O_WRONLY | O_RDONLY | O_CREAT,0644);
+        if(fd==-1){perror("Open File.\n");}
+
+        //Write the headline of the text.
+        strcpy(buffer,argv[1]);
+        strcat(buffer," Order");
+
+        if(write(fd,buffer,strlen(buffer))==-1){perror("Write.\n");}
+        if(write(fd,"\n",1)==-1){perror("Write.\n");}
+
+        //Write the whole string which was built to the file.
+        if(write(fd,Text_To_File,strlen(Text_To_File))==-1){perror("Write.\n");}
+
+        //Changing the permissions to the file to READ ONLY.
+        strcpy(buffer,argv[2]);
+        strcat(buffer,".txt");
+        if(chmod(buffer,00444)==-1){
+            printf("Error in chmod.\n");
+            exit(1);
+        }
+        printf("Order created.\n");
+
+        close(fd);
+
+    }
+    else{
+        //else if the user did not confirm his order => we remove his order from the newly created directory.
+        strcpy(buffer,argv[2]);
+        strcat(buffer,".txt");
+        remove(buffer);
+
+    }
+
+    close(fd_read_from);
+    free(Text_To_File);
+    free(FileDishName);
+
+    return 0;
+}
